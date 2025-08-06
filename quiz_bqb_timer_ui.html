@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BQB Quiz</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+    }
+    h1 {
+      text-align: center;
+      color: #2a2a2a;
+    }
+    .question {
+      margin-bottom: 20px;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 10px;
+      font-size: 1em;
+      margin-top: 5px;
+    }
+    #submitBtn {
+      margin-top: 20px;
+      padding: 10px 20px;
+    }
+    #timer {
+      font-weight: bold;
+      float: right;
+    }
+    #uploadSection {
+      margin-bottom: 20px;
+    }
+    #startSection {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>BQB Quiz</h1>
+
+  <div id="uploadSection">
+    <input type="file" id="fileInput" accept=".xlsx" />
+    <p><strong>Expected Columns:</strong> "Question", "Answer" (Answer will not be used here)</p>
+  </div>
+
+  <div id="startSection">
+    <label for="timeSelect">Set Timer (minutes):</label>
+    <select id="timeSelect">
+      <option value="5">5 mins</option>
+<option value="10">10 mins</option>
+<option value="15">15 mins</option>
+<option value="20">20 mins</option>
+<option value="25">25 mins</option>
+<option value="30">30 mins</option>
+<option value="35">35 mins</option>
+<option value="40">40 mins</option>
+<option value="45">45 mins</option>
+<option value="50">50 mins</option>
+<option value="55">55 mins</option>
+<option value="60">60 mins</option>
+    </select>
+  </div>
+
+  <div id="timer" style="display:none;">Time left: 10:00</div>
+  <div id="quiz"></div>
+  <button id="submitBtn" style="display:none;">Submit Exam</button>
+  <div id="result"></div>
+
+  <script>
+    let questions = [];
+    let userAnswers = {};
+    let timeLeft = 600;
+    let timerInterval;
+
+    const fileInput = document.getElementById("fileInput");
+    const quizDiv = document.getElementById("quiz");
+    const timerDisplay = document.getElementById("timer");
+    const submitBtn = document.getElementById("submitBtn");
+    const resultDiv = document.getElementById("result");
+    const timeSelect = document.getElementById("timeSelect");
+
+    fileInput.addEventListener("change", handleFileUpload);
+    submitBtn.addEventListener("click", handleSubmit);
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function (e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet);
+
+        // Shuffle and select 50
+        const shuffled = json.sort(() => 0.5 - Math.random()).slice(0, 50);
+
+        questions = shuffled.map((q, i) => ({
+          id: i + 1,
+          text: q.Question || `Question ${i + 1}`
+        }));
+
+        startQuiz();
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function startQuiz() {
+      quizDiv.innerHTML = "";
+      userAnswers = {};
+      resultDiv.innerHTML = "";
+      submitBtn.style.display = "inline-block";
+      timerDisplay.style.display = "block";
+
+      // Set custom time limit
+      timeLeft = parseInt(timeSelect.value) * 60;
+
+      questions.forEach((q, index) => {
+        const questionDiv = document.createElement("div");
+        questionDiv.className = "question";
+
+        const qText = document.createElement("h3");
+        qText.textContent = `${index + 1}. ${q.text}`;
+        questionDiv.appendChild(qText);
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = "Type your answer here";
+        input.oninput = () => {
+          userAnswers[q.id] = input.value.trim();
+        };
+
+        questionDiv.appendChild(input);
+        quizDiv.appendChild(questionDiv);
+      });
+
+      updateTimer();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    function updateTimer() {
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      timerDisplay.textContent = `Time left: ${minutes}:${String(seconds).padStart(2, "0")}`;
+
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        submitBtn.click();
+        submitBtn.disabled = true;
+        return;
+      }
+
+      timeLeft--;
+    }
+
+    function handleSubmit() {
+      clearInterval(timerInterval);
+
+      const results = questions.map((q) => {
+        const answer = userAnswers[q.id] || "(no answer)";
+        return `${q.id}. ${q.text}\nAnswer: ${answer}\n`;
+      });
+
+      const summary = results.join("\n");
+      resultDiv.innerHTML = `<h2>📤 Answers saved for manual checking.</h2><pre>${summary}</pre>`;
+    }
+  </script>
+</body>
+</html>
